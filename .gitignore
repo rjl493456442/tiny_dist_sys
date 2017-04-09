@@ -1,2 +1,5 @@
+.idea
+.DS_Store
+*.[oa]
 api.key
 *-handin.tar.gz

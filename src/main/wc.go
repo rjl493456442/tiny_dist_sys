@@ -2,7 +2,7 @@ package main
 
 import "os"
 import "fmt"
-import "mapreduce"
+import "distsys/mapreduce"
 
 import "container/list"
 
@@ -29,7 +29,7 @@ func main() {
 		fmt.Printf("%s: see usage comments in file\n", os.Args[0])
 	} else if os.Args[1] == "master" {
 		if os.Args[3] == "sequential" {
-			mapreduce.RunSingle(5, 3, os.Args[2], Map, Reduce)
+			mapreduce.RunSingle(1, 1, os.Args[2], Map, Reduce)
 		} else {
 			mr := mapreduce.MakeMapReduce(5, 3, os.Args[2], os.Args[3])
 			// Wait until MR is done
