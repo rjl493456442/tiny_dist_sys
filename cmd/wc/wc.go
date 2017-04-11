@@ -19,7 +19,7 @@ func Map(value string) *list.List {
 	words := strings.FieldsFunc(value, func(r rune) bool {
 		switch r {
 		// delimiters. just for demo not accurate
-		case ',', ' ', '-', ':', '/', '=', '>' ,'@', '*', '.', '(', ')', ';', '\n', '\t', '?', '!', '"', '\'', '<', '>':
+		case ',', ' ', '-', ':', '/', '=', '>' ,'@', '*', '.', '(', ')', ';', '\n', '\t', '?', '!', '"', '\'', '<':
 			return true
 		default:
 			return false
