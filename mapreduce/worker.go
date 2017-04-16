@@ -16,6 +16,7 @@ type Worker struct {
 	nRPC   int
 	nJobs  int
 	l      net.Listener
+	Exit   chan bool
 }
 
 // The master sent us a job
@@ -43,6 +44,7 @@ func (wk *Worker) Shutdown(args *ShutdownArgs, res *ShutdownReply) error {
 	wk.nJobs--  // Don't count the shutdown RPC
 	return nil
 }
+
 
 // Tell the master we exist and ready to work
 func Register(master string, me string) {

@@ -10,7 +10,9 @@ import "container/list"
 import "net/rpc"
 import "net"
 import "bufio"
-import "hash/fnv"
+import (
+	"hash/fnv"
+)
 
 // import "os/exec"
 
@@ -34,7 +36,7 @@ import "hash/fnv"
 // which Merge() merges into a single output.
 
 // Debugging
-const Debug = 0
+const Debug = 1
 
 func DPrintf(format string, a ...interface{}) (n int, err error) {
 	if Debug > 0 {
@@ -56,13 +58,14 @@ type MapReduce struct {
 	MasterAddress   string
 	registerChannel chan string
 	DoneChannel     chan bool
+	exitChannel     chan bool
 	alive           bool
 	l               net.Listener
 	stats           *list.List
 
 	// Map of registered workers that you need to keep up to date
-	Workers map[string]*WorkerInfo
-
+	workerMgr       *WorkerManager
+	jobMgr          *JobManager
 	// add any additional state here
 }
 
@@ -75,9 +78,13 @@ func InitMapReduce(nmap int, nreduce int,
 	mr.MasterAddress = master
 	mr.alive = true
 	mr.registerChannel = make(chan string)
+	mr.exitChannel = make(chan bool)
 	mr.DoneChannel = make(chan bool)
-
+	mr.workerMgr = NewWorkerManager()
+	mr.jobMgr = NewJobManager()
 	// initialize any additional state here
+	go mr.workerMgr.HandleRegister(mr.registerChannel, mr.exitChannel)
+	DPrintf("init mapreduce done\n")
 	return mr
 }
 
@@ -96,6 +103,7 @@ func (mr *MapReduce) Register(args *RegisterArgs, res *RegisterReply) error {
 	return nil
 }
 
+
 func (mr *MapReduce) Shutdown(args *ShutdownArgs, res *ShutdownReply) error {
 	DPrintf("Shutdown: registration server\n")
 	mr.alive = false
@@ -113,6 +121,7 @@ func (mr *MapReduce) StartRegistrationServer() {
 	}
 	mr.l = l
 
+	DPrintf("begin listen register event\n")
 	// now that we are listening on the master address, can fork off
 	// accepting connections to another thread.
 	go func() {
@@ -368,7 +377,6 @@ func (mr *MapReduce) CleanupRegistration() {
 // Run jobs in parallel, assuming a shared file system
 func (mr *MapReduce) Run() {
 	fmt.Printf("Run mapreduce job %s %s\n", mr.MasterAddress, mr.file)
-
 	mr.Split(mr.file)
 	mr.stats = mr.RunMaster()
 	mr.Merge()

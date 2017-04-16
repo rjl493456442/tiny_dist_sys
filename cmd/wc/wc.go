@@ -51,14 +51,18 @@ func main() {
 		fmt.Printf("%s: see usage comments in file\n", os.Args[0])
 	} else if os.Args[1] == "master" {
 		if os.Args[3] == "sequential" {
+			// ## run in way 1
 			mapreduce.RunSingle(5, 3, os.Args[2], Map, Reduce)
 		} else {
+			// ## run in way 2
 			mr := mapreduce.MakeMapReduce(5, 3, os.Args[2], os.Args[3])
 			// Wait until MR is done
 			<-mr.DoneChannel
 		}
 	} else {
+		// ## run in way 3
 		mapreduce.RunWorker(os.Args[2], os.Args[3], Map, Reduce, 100)
+
 	}
 }
 

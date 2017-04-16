@@ -1,34 +1,81 @@
 package mapreduce
 
 import "container/list"
-import "fmt"
+import (
+	"time"
+	"sync"
+)
 
 
-type WorkerInfo struct {
-	address string
-	// You can add definitions here.
-}
 
-
-// Clean up all workers by sending a Shutdown RPC to each one of them Collect
-// the number of jobs each work has performed.
-func (mr *MapReduce) KillWorkers() *list.List {
-	l := list.New()
-	for _, w := range mr.Workers {
-		DPrintf("DoWork: shutdown %s\n", w.address)
-		args := &ShutdownArgs{}
-		var reply ShutdownReply
-		ok := call(w.address, "Worker.Shutdown", args, &reply)
-		if ok == false {
-			fmt.Printf("DoWork: RPC %s shutdown error\n", w.address)
-		} else {
-			l.PushBack(reply.Njobs)
-		}
-	}
-	return l
-}
 
 func (mr *MapReduce) RunMaster() *list.List {
 	// Your code here
-	return mr.KillWorkers()
+	mr.handoutMapJob()
+	mr.handoutReduceJob()
+	return mr.workerMgr.KillWorkers()
+}
+
+func (mr *MapReduce) handoutMapJob() {
+	var wg sync.WaitGroup
+	for i := 0; i < mr.nMap; i += 1 {
+		wg.Add(1)
+		go func(id int) {
+			worker := mr.selectWorkerUntil()
+			arg := &DoJobArgs{
+				File: mr.file,
+				Operation: Map,
+				JobNumber: id,
+				NumOtherPhase: mr.nReduce,
+			}
+			var reply DoJobReply
+			success := call(worker, "Worker.DoJob", arg, &reply)
+			if !success {
+
+			} else {
+				mr.workerMgr.MarkIdle(worker)
+				wg.Done()
+			}
+		}(i)
+	}
+	wg.Wait()
+}
+
+func (mr *MapReduce) handoutReduceJob() {
+	var wg sync.WaitGroup
+	for i := 0; i < mr.nReduce; i += 1 {
+		wg.Add(1)
+		go func(id int) {
+			worker := mr.selectWorkerUntil()
+			arg := &DoJobArgs{
+				File: mr.file,
+				Operation: Reduce,
+				JobNumber: id,
+				NumOtherPhase: mr.nMap,
+			}
+			var reply DoJobReply
+			success := call(worker, "Worker.DoJob", arg, &reply)
+			if !success {
+
+			} else {
+				mr.workerMgr.MarkIdle(worker)
+				wg.Done()
+			}
+		}(i)
+	}
+	wg.Wait()
+
+}
+
+func (mr *MapReduce) selectWorkerUntil() string {
+	ticker := time.NewTicker(10 * time.Millisecond)
+	for {
+		select {
+		case <- ticker.C:
+			addr := mr.workerMgr.SelectAndMarkBusy()
+			if addr != "" {
+				return addr
+			}
+		}
+	}
 }
