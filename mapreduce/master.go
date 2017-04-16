@@ -4,6 +4,7 @@ import "container/list"
 import (
 	"time"
 	"sync"
+	"log"
 )
 
 
@@ -21,20 +22,25 @@ func (mr *MapReduce) handoutMapJob() {
 	for i := 0; i < mr.nMap; i += 1 {
 		wg.Add(1)
 		go func(id int) {
-			worker := mr.selectWorkerUntil()
-			arg := &DoJobArgs{
-				File: mr.file,
-				Operation: Map,
-				JobNumber: id,
-				NumOtherPhase: mr.nReduce,
-			}
-			var reply DoJobReply
-			success := call(worker, "Worker.DoJob", arg, &reply)
-			if !success {
+			for {
+				worker := mr.selectWorkerUntil()
+				arg := &DoJobArgs{
+					File: mr.file,
+					Operation: Map,
+					JobNumber: id,
+					NumOtherPhase: mr.nReduce,
+				}
+				var reply DoJobReply
+				success := call(worker, "Worker.DoJob", arg, &reply)
+				if !success {
+					log.Println("++++============================= CHANGE =====================")
+					continue
+				} else {
+					mr.workerMgr.MarkIdle(worker)
+					wg.Done()
+					break
+				}
 
-			} else {
-				mr.workerMgr.MarkIdle(worker)
-				wg.Done()
 			}
 		}(i)
 	}
@@ -46,20 +52,24 @@ func (mr *MapReduce) handoutReduceJob() {
 	for i := 0; i < mr.nReduce; i += 1 {
 		wg.Add(1)
 		go func(id int) {
-			worker := mr.selectWorkerUntil()
-			arg := &DoJobArgs{
-				File: mr.file,
-				Operation: Reduce,
-				JobNumber: id,
-				NumOtherPhase: mr.nMap,
-			}
-			var reply DoJobReply
-			success := call(worker, "Worker.DoJob", arg, &reply)
-			if !success {
+			for {
+				worker := mr.selectWorkerUntil()
+				arg := &DoJobArgs{
+					File: mr.file,
+					Operation: Reduce,
+					JobNumber: id,
+					NumOtherPhase: mr.nMap,
+				}
+				var reply DoJobReply
+				success := call(worker, "Worker.DoJob", arg, &reply)
+				if !success {
+					continue
+				} else {
+					mr.workerMgr.MarkIdle(worker)
+					wg.Done()
+					break
+				}
 
-			} else {
-				mr.workerMgr.MarkIdle(worker)
-				wg.Done()
 			}
 		}(i)
 	}
